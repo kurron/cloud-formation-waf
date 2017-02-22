@@ -12,26 +12,6 @@ Metadata:
 
 # These show up in the console and are expected to be provided by the operator
 Parameters:
-    Project:
-        Description: 'Project name this WAF is has been created for'
-        Type: 'String'
-        Default: 'Weapon X'
-
-    Creator:
-        Description: 'Tool or person creating this WAF'
-        Type: 'String'
-        Default: 'CloudFormation'
-
-    Environment:
-        Description: 'Context the WAF will be used in.  Common values are production, testing and development.'
-        Type: 'String'
-        Default: 'development'
-
-    Notes:
-        Description: 'Notes to apply, normally edited in the console.'
-        Type: 'String'
-        Default: 'No notes'
-
     Name:
         Description: 'A friendly name or description of the web ACL'
         Type: 'String'
