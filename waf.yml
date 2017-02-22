@@ -41,7 +41,7 @@ Resources:
         Type: 'AWS::WAF::Rule'
         Properties:
             MetricName: 'SpecificAddressMetric'
-            Name: 'Matches agaisnt a specific ip address'
+            Name: 'Matches against a specific ip address'
             Predicates:
                 -
                     DataId:
