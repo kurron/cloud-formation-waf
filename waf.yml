@@ -13,17 +13,17 @@ Metadata:
 # These show up in the console and are expected to be provided by the operator
 Parameters:
     Project:
-        Description: 'Project name this cluster is has been created for'
+        Description: 'Project name this WAF is has been created for'
         Type: 'String'
         Default: 'Weapon X'
 
     Creator:
-        Description: 'Tool or person creating this cluster'
+        Description: 'Tool or person creating this WAF'
         Type: 'String'
         Default: 'CloudFormation'
 
     Environment:
-        Description: 'Context the cluster will be used in.  Common values are production, testing and development.'
+        Description: 'Context the WAF will be used in.  Common values are production, testing and development.'
         Type: 'String'
         Default: 'development'
 
@@ -32,124 +32,62 @@ Parameters:
         Type: 'String'
         Default: 'No notes'
 
-    Subnets:
-        Description: 'Which subnets the Applicaion Load Balancer should be deployed to.'
-        Type: List<AWS::EC2::Subnet::Id>
+    Name:
+        Description: 'A friendly name or description of the web ACL'
+        Type: 'String'
+        Default: 'Silly Example'
 
-    VPC:
-        Type: AWS::EC2::VPC::Id
-        Description: 'Which VPC the Applicaion Load Balancer should be deployed to.'
+    MetricName:
+        Description: 'A friendly name or description for the Amazon CloudWatch metric of this web ACL.'
+        Type: 'String'
+        Default: 'SillyExample'
 
-    SecurityGroups:
-        Description: 'The Security Groups to apply to the Applicaion Load Balancer'
-        Type: List<AWS::EC2::SecurityGroup::Id>
-
-    LoadBalancerPort:
-        Description: The port the load balancer should listen on
-        Type: Number
-        Default: 80
-
-    LoadBalancerType:
-        Description: Define if the balancer is an external or internal balancer (internet-facing or internal)
-        Type: String
-        Default: internet-facing
+    Priority:
+        Description: 'The order in which AWS WAF evaluates the rules in a web ACL. AWS WAF evaluates rules with a lower value before rules with a higher value.'
+        Type: 'Number'
+        Default: 1
 
 Resources:
-    LoadBalancer:
-        Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    InterestingAddresses:
+        Type: 'AWS::WAF::IPSet'
         Properties:
-            LoadBalancerAttributes:
-                - Key: 'deletion_protection.enabled'
-                  Value: 'false'
-                - Key: 'idle_timeout.timeout_seconds'
-                  Value: '60'
-            Scheme:
-                Ref: LoadBalancerType
-            SecurityGroups:
-                Ref: SecurityGroups
-            Subnets:
-                Ref: Subnets
-            Tags:
-                - Key: 'Name'
-                  Value: !Ref 'AWS::StackName'
-                - Key: 'Project'
-                  Value:
-                      Ref: 'Project'
-                - Key: 'Purpose'
-                  Value: 'Load balancer'
-                - Key: 'Creator'
-                  Value:
-                      Ref: 'Creator'
-                - Key: 'Environment'
-                  Value:
-                      Ref: 'Environment'
-                - Key: 'Freetext'
-                  Value:
-                      Ref: Notes
+            IPSetDescriptors:
+                -
+                    Type: IPV4
+                    Value: '64.222.174.146/32'
+            Name: 'List of ip addresses we want to monitor'
 
-    # We define a default target group here, as this is a mandatory Parameters
-    # when creating an Application Load Balancer Listener. This is not used, instead
-    # a target group is created per-service in each service template (../services/*)
-    DefaultTargetGroup:
-        Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    SpecificAddressRule:
+        Type: 'AWS::WAF::Rule'
         Properties:
-            HealthCheckIntervalSeconds: 10
-            HealthCheckPath: '/'
-            HealthCheckPort:
-                Ref: LoadBalancerPort
-            HealthCheckProtocol: HTTP
-            HealthCheckTimeoutSeconds: 5
-            HealthyThresholdCount: 3
-            Matcher:
-                HttpCode: '200-399'
-            Port:
-                Ref: LoadBalancerPort
-            Protocol: HTTP
-            Tags:
-                - Key: 'Name'
-                  Value: !Ref 'AWS::StackName'
-                - Key: 'Project'
-                  Value:
-                      Ref: 'Project'
-                - Key: 'Purpose'
-                  Value: 'Default Group'
-                - Key: 'Creator'
-                  Value:
-                      Ref: 'Creator'
-                - Key: 'Environment'
-                  Value:
-                      Ref: 'Environment'
-                - Key: 'Freetext'
-                  Value: 'Required but never used by ECS'
-            UnhealthyThresholdCount: 3
-            VpcId:
-                Ref: VPC
-
-    # bind the listener to the target group
-    LoadBalancerListener:
-        Type: 'AWS::ElasticLoadBalancingV2::Listener'
+            MetricName: 'SpecificAddressMetric'
+            Name: 'Matches agaisnt a specific ip address'
+            Predicates:
+                -
+                    DataId:
+                        Ref: InterestingAddresses
+                    Negated: false
+                    Type: IPMatch
+    ACL:
+        Type: 'AWS::WAF::WebACL'
         Properties:
-            DefaultActions:
-                - Type: forward
-                  TargetGroupArn:
-                      Ref: DefaultTargetGroup
-            LoadBalancerArn:
-                Ref: LoadBalancer
-            Port:
-                Ref: LoadBalancerPort
-            Protocol: HTTP
+            DefaultAction:
+                Type: ALLOW
+            MetricName:
+                Ref: MetricName
+            Name:
+                Ref: Name
+            Rules:
+                -
+                    Action:
+                        Type: COUNT
+                    Priority:
+                        Ref: Priority
+                    RuleId:
+                        Ref: SpecificAddressRule
 
 Outputs:
-    LoadBalancer:
-        Description: A reference to the Application Load Balancer
+    ACL:
+        Description: A reference to the Web Application Firewall ACL
         Value:
-            Ref: LoadBalancer
-
-    LoadBalancerUrl:
-        Description: The URL of the ALB
-        Value: !GetAtt LoadBalancer.DNSName
-
-    LoadBalancerListener:
-        Description: A reference to the associated listener
-        Value:
-            Ref: LoadBalancerListener
+            Ref: ACL
